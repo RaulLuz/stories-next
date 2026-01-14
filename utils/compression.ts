@@ -22,12 +22,10 @@ export async function compressImage(
     return file;
   }
 
-  const compressionOptions: CompressionOptions = {
+  const compressionOptions = {
     maxSizeMB: MAX_FILE_SIZE / (1024 * 1024), // Converter para MB
     maxWidthOrHeight: options?.maxWidthOrHeight || MAX_IMAGE_WIDTH,
     quality: options?.quality || JPEG_QUALITY,
-    useWebWorker: true,
-    fileType: file.type,
   };
 
   try {

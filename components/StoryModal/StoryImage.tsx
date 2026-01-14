@@ -74,25 +74,12 @@ export function StoryImage({ story, isActive, className = "" }: StoryImageProps)
         maxHeight: "calc(100vh - 120px)"
       }}
     >
-      {story.mediaType === "video" ? (
-        <video
-          src={story.mediaBase64}
-          className="w-full h-full object-contain rounded-3xl"
-          controls={false}
-          autoPlay
-          loop
-          muted
-          playsInline
-          onError={() => setImageError(true)}
-        />
-      ) : (
-        <img
-          src={story.mediaBase64}
-          alt={`Story ${story.id}`}
-          className="w-full h-full object-contain rounded-3xl"
-          onError={() => setImageError(true)}
-        />
-      )}
+      <img
+        src={story.mediaBase64}
+        alt={`Story ${story.id}`}
+        className="w-full h-full object-contain rounded-3xl"
+        onError={() => setImageError(true)}
+      />
       {story.textOverlay && (
         <div
           className="absolute pointer-events-none"

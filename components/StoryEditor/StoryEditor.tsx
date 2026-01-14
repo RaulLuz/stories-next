@@ -18,10 +18,10 @@ export function StoryEditor({
 }: StoryEditorProps) {
   const [text, setText] = useState("");
   const [position, setPosition] = useState({ x: 50, y: 50 });
-  const [color, setColor] = useState(TEXT_COLORS[0]);
+  const [color, setColor] = useState<string>(TEXT_COLORS[0]);
   const [customColor, setCustomColor] = useState("");
   const [fontSize, setFontSize] = useState(32);
-  const [fontFamily, setFontFamily] = useState(FONTS[0].value);
+  const [fontFamily, setFontFamily] = useState<string>(FONTS[0].value);
   const [rotation, setRotation] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -236,8 +236,7 @@ export function StoryEditor({
         {/* Botão X para fechar */}
         <button
           onClick={onCancel}
-          className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full flex items-center justify-center hover:bg-opacity-70 transition-colors"
-          className="bg-black bg-opacity-50"
+          className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full flex items-center justify-center hover:bg-opacity-70 transition-colors bg-black bg-opacity-50"
           aria-label="Fechar"
         >
           <svg

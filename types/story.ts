@@ -1,4 +1,4 @@
-export type MediaType = "image" | "video";
+export type MediaType = "image" | "video" | "gif";
 
 export interface TextOverlay {
   text: string;

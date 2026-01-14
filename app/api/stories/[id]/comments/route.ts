@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { neon } from "@neondatabase/serverless";
 import { Comment } from "@/types/story";
 
-if (!process.env.POSTGRES_URL) {
-  console.warn("POSTGRES_URL não encontrada. Usando modo de fallback.");
-}
-
-const sql = neon(process.env.POSTGRES_URL || "");
+const getSql = () => {
+  if (!process.env.POSTGRES_URL) {
+    throw new Error("POSTGRES_URL não encontrada nas variáveis de ambiente");
+  }
+  return neon(process.env.POSTGRES_URL);
+};
 
 // GET - Buscar comentários de um story
 export async function GET(
@@ -14,6 +15,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    const sql = getSql();
     const result = await sql`
       SELECT comments FROM stories WHERE id = ${params.id}
     `;
@@ -42,6 +44,7 @@ export async function POST(
     const comment: Comment = await request.json();
 
     // Buscar story atual
+    const sql = getSql();
     const result = await sql`
       SELECT comments FROM stories WHERE id = ${params.id}
     `;

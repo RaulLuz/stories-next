@@ -2,17 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { neon } from "@neondatabase/serverless";
 import { Story } from "@/types/story";
 
-if (!process.env.POSTGRES_URL) {
-  console.warn("POSTGRES_URL não encontrada. Usando modo de fallback.");
-}
-
-const sql = neon(process.env.POSTGRES_URL || "");
+const getSql = () => {
+  if (!process.env.POSTGRES_URL) {
+    throw new Error("POSTGRES_URL não encontrada nas variáveis de ambiente");
+  }
+  return neon(process.env.POSTGRES_URL);
+};
 
 // GET - Buscar todos os stories (excluindo expirados)
 export async function GET() {
   try {
     const now = Date.now();
-    
+    const sql = getSql();
     const result = await sql`
       SELECT * FROM stories 
       WHERE expires_at > ${now}
@@ -43,7 +44,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const story: Story = await request.json();
-
+    const sql = getSql();
     await sql`
       INSERT INTO stories (
         id, media_base64, media_type, text_overlay, 
@@ -91,6 +92,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    const sql = getSql();
     await sql`DELETE FROM stories WHERE id = ${id}`;
 
     return NextResponse.json({ success: true });
