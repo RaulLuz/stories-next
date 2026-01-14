@@ -42,18 +42,54 @@ CREATE INDEX IF NOT EXISTS created_at_idx ON stories(created_at);
 CREATE INDEX IF NOT EXISTS expires_at_idx ON stories(expires_at);
 ```
 
-### Opção B: Via Vercel CLI (Alternativa)
+### Opção B: Via Script Node.js (Automático)
+
+1. Configure a variável de ambiente `POSTGRES_URL`:
+   
+   **Windows (PowerShell):**
+   ```powershell
+   $env:POSTGRES_URL="sua_connection_string_aqui"
+   ```
+   
+   **Windows (CMD):**
+   ```cmd
+   set POSTGRES_URL=sua_connection_string_aqui
+   ```
+   
+   **Linux/Mac:**
+   ```bash
+   export POSTGRES_URL="sua_connection_string_aqui"
+   ```
+
+2. Execute o script de migration:
+   ```bash
+   npm run migrate
+   ```
+
+   O script irá:
+   - Verificar se a connection string está configurada
+   - Executar a migration SQL automaticamente
+   - Informar se houve sucesso ou erro
+
+### Opção C: Via Vercel CLI
 
 1. Instale o Vercel CLI se ainda não tiver:
    ```bash
    npm i -g vercel
    ```
 
-2. Execute a migration:
+2. Baixe as variáveis de ambiente:
    ```bash
    vercel env pull .env.local
-   # Depois execute o SQL usando um cliente PostgreSQL
    ```
+
+3. Execute a migration:
+   ```bash
+   npm run migrate
+   ```
+
+**Onde encontrar a connection string:**
+- Neon Dashboard → Seu projeto → Connection Details → Connection String
 
 ## Passo 3: Instalar dependências
 

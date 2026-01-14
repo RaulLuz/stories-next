@@ -31,8 +31,20 @@ export async function GET() {
     }));
 
     return NextResponse.json({ stories });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Erro ao buscar stories:", error);
+    
+    // Verificar se é erro de tabela não existe
+    if (error?.code === "42P01" || error?.message?.includes("does not exist")) {
+      return NextResponse.json(
+        { 
+          error: "Tabela 'stories' não encontrada. Execute a migration SQL primeiro. Veja SETUP_NEON.md para instruções.",
+          migrationNeeded: true
+        },
+        { status: 500 }
+      );
+    }
+    
     return NextResponse.json(
       { error: "Erro ao buscar stories" },
       { status: 500 }

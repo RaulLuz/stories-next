@@ -6,7 +6,7 @@ export const MAX_IMAGE_WIDTH = 1920; // pixels
 
 export const JPEG_QUALITY = 0.85; // 85% de qualidade
 
-export const STORY_DURATION = 3000; // 3 segundos em ms
+export const STORY_DURATION = 5000; // 5 segundos em ms
 
 export const STORY_EXPIRATION_HOURS = 24;
 

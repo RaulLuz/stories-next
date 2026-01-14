@@ -26,8 +26,7 @@ export function StoryModal({
   onClose,
 }: StoryModalProps) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
-  const [isHolding, setIsHolding] = useState(false);
-  const holdTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isCommentPanelInteracting, setIsCommentPanelInteracting] = useState(false);
 
   const handleNext = useCallback(() => {
     if (currentIndex < stories.length - 1) {
@@ -51,8 +50,8 @@ export function StoryModal({
     handleNext();
   }, [handleNext]);
 
-  // Timer ativo apenas quando o modal está aberto e não está pausado
-  const isTimerActive = isOpen && !isHolding;
+  // Timer ativo apenas quando o modal está aberto e não está interagindo com comentários
+  const isTimerActive = isOpen && !isCommentPanelInteracting;
   const timer = useStoryTimer(isTimerActive, handleComplete);
 
   const handleBarClick = useCallback(
@@ -122,59 +121,17 @@ export function StoryModal({
     }
   }, [currentIndex, isOpen, timer]);
 
-  // Pausar/resumir timer ao segurar
+  // Pausar/resumir timer ao interagir com comentários
   useEffect(() => {
-    if (isHolding) {
+    if (isCommentPanelInteracting) {
+      // Quando interagindo, SEMPRE pausar e garantir que não retome
       timer.pause();
-    } else if (isOpen) {
-      timer.resume();
+      // Não chamar resume() aqui - o timer só retomará quando isTimerActive for true
+      // e isso só acontece quando isCommentPanelInteracting for false
     }
-  }, [isOpen, isHolding, timer]);
-
-  // Handlers para pausar ao clicar e segurar
-  const handleMouseDown = useCallback(() => {
-    holdTimeoutRef.current = setTimeout(() => {
-      setIsHolding(true);
-      timer.pause();
-    }, 100);
-  }, [timer]);
-
-  const handleMouseUp = useCallback(() => {
-    if (holdTimeoutRef.current) {
-      clearTimeout(holdTimeoutRef.current);
-      holdTimeoutRef.current = null;
-    }
-    if (isHolding) {
-      setIsHolding(false);
-      timer.resume();
-    }
-  }, [isHolding, timer]);
-
-  const handleTouchStart = useCallback(() => {
-    holdTimeoutRef.current = setTimeout(() => {
-      setIsHolding(true);
-      timer.pause();
-    }, 100);
-  }, [timer]);
-
-  const handleTouchEnd = useCallback(() => {
-    if (holdTimeoutRef.current) {
-      clearTimeout(holdTimeoutRef.current);
-      holdTimeoutRef.current = null;
-    }
-    if (isHolding) {
-      setIsHolding(false);
-      timer.resume();
-    }
-  }, [isHolding, timer]);
-
-  useEffect(() => {
-    return () => {
-      if (holdTimeoutRef.current) {
-        clearTimeout(holdTimeoutRef.current);
-      }
-    };
-  }, []);
+    // Não precisamos chamar resume() aqui porque o useStoryTimer já gerencia isso
+    // através do isTimerActive que é passado como prop
+  }, [isCommentPanelInteracting, timer]);
 
   if (!isOpen || stories.length === 0) {
     return null;
@@ -191,28 +148,13 @@ export function StoryModal({
         flex items-center justify-center
         animate-fade-in
       "
-      onTouchStart={(e) => {
-        handleTouchStart();
-        swipeHandlers.onTouchStart(e);
-      }}
+      onTouchStart={swipeHandlers.onTouchStart}
       onTouchMove={swipeHandlers.onTouchMove}
-      onTouchEnd={(e) => {
-        handleTouchEnd();
-        swipeHandlers.onTouchEnd();
-      }}
-      onMouseDown={(e) => {
-        handleMouseDown();
-        swipeHandlers.onMouseDown(e);
-      }}
+      onTouchEnd={swipeHandlers.onTouchEnd}
+      onMouseDown={swipeHandlers.onMouseDown}
       onMouseMove={swipeHandlers.onMouseMove}
-      onMouseUp={(e) => {
-        handleMouseUp();
-        swipeHandlers.onMouseUp();
-      }}
-      onMouseLeave={(e) => {
-        handleMouseUp();
-        swipeHandlers.onMouseLeave();
-      }}
+      onMouseUp={swipeHandlers.onMouseUp}
+      onMouseLeave={swipeHandlers.onMouseLeave}
       style={{ cursor: swipeHandlers.isDragging ? "grabbing" : "grab" }}
     >
       {/* Barra de progresso */}
@@ -241,6 +183,8 @@ export function StoryModal({
         {/* Painel de comentários */}
         <CommentsPanel
           story={currentStory}
+          onInteractionStart={() => setIsCommentPanelInteracting(true)}
+          onInteractionEnd={() => setIsCommentPanelInteracting(false)}
           onAddComment={async (comment) => {
             try {
               await fetch(`${API_URL}/stories/${currentStory.id}/comments`, {

@@ -7,18 +7,65 @@ interface CommentsPanelProps {
   story: Story;
   onAddComment: (comment: Comment) => void;
   onAddReply: (commentId: string, reply: Comment) => void;
+  onInteractionStart?: () => void;
+  onInteractionEnd?: () => void;
 }
 
 const EMOJI_LIST = ["😀", "😂", "❤️", "🔥", "👍", "👏", "🎉", "😍", "😊", "🙌", "💯", "✨"];
+const INACTIVITY_DELAY = 500; // ms de inatividade antes de retomar o timer
 
-export function CommentsPanel({ story, onAddComment, onAddReply }: CommentsPanelProps) {
+export function CommentsPanel({ story, onAddComment, onAddReply, onInteractionStart, onInteractionEnd }: CommentsPanelProps) {
   const [newComment, setNewComment] = useState("");
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const commentsEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const inactivityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMouseInsideRef = useRef(false);
 
   const comments = story.comments || [];
+
+  // Função para sinalizar atividade e reiniciar timeout de inatividade
+  const signalActivity = () => {
+    // SEMPRE pausar o timer primeiro quando houver qualquer atividade
+    onInteractionStart?.();
+    
+    // Cancelar timeout anterior se existir (isso impede que o timer retome)
+    if (inactivityTimeoutRef.current) {
+      clearTimeout(inactivityTimeoutRef.current);
+      inactivityTimeoutRef.current = null;
+    }
+    
+    // Criar novo timeout para retomar APENAS após período de inatividade
+    inactivityTimeoutRef.current = setTimeout(() => {
+      // Verificar se ainda estamos dentro da sidebar e se não há input focado
+      if (!isMouseInsideRef.current && !hasFocusedInput()) {
+        onInteractionEnd?.();
+      } else {
+        // Se ainda há atividade, reiniciar o timeout (manter pausado)
+        signalActivity();
+      }
+    }, INACTIVITY_DELAY);
+  };
+
+  // Verificar se algum input está focado dentro do painel
+  const hasFocusedInput = (): boolean => {
+    if (!panelRef.current) return false;
+    const activeElement = document.activeElement;
+    if (!activeElement) return false;
+    return panelRef.current.contains(activeElement) && 
+           (activeElement.tagName === "INPUT" || activeElement.tagName === "TEXTAREA");
+  };
+
+  // Limpar timeout ao desmontar
+  useEffect(() => {
+    return () => {
+      if (inactivityTimeoutRef.current) {
+        clearTimeout(inactivityTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const scrollToBottom = () => {
     commentsEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -40,6 +87,7 @@ export function CommentsPanel({ story, onAddComment, onAddReply }: CommentsPanel
 
     onAddComment(comment);
     setNewComment("");
+    signalActivity(); // Manter interação ativa após adicionar comentário
   };
 
   const handleAddReply = (e: React.FormEvent, commentId: string) => {
@@ -55,6 +103,7 @@ export function CommentsPanel({ story, onAddComment, onAddReply }: CommentsPanel
     onAddReply(commentId, reply);
     setReplyText("");
     setReplyingTo(null);
+    signalActivity(); // Manter interação ativa após adicionar resposta
   };
 
   const handleEmojiClick = (emoji: string) => {
@@ -63,6 +112,7 @@ export function CommentsPanel({ story, onAddComment, onAddReply }: CommentsPanel
     } else {
       setNewComment((prev) => prev + emoji);
     }
+    signalActivity(); // Manter interação ativa ao clicar emoji
   };
 
   const formatTime = (timestamp: number) => {
@@ -77,8 +127,65 @@ export function CommentsPanel({ story, onAddComment, onAddReply }: CommentsPanel
     return `${Math.floor(hours / 24)}d`;
   };
 
+  // Handler para quando o mouse entra na sidebar (não apenas hover sobre elementos)
+  const handleMouseEnter = () => {
+    isMouseInsideRef.current = true;
+    signalActivity();
+  };
+
+  // Handler para quando o mouse sai completamente da sidebar
+  const handleMouseLeave = (e: React.MouseEvent) => {
+    // Verificar se realmente saiu da sidebar (não apenas passou por cima de um elemento filho)
+    const relatedTarget = e.relatedTarget;
+    
+    // Se não houver relatedTarget (mouse saiu para fora da página), consideramos que saiu do painel
+    if (!relatedTarget) {
+      isMouseInsideRef.current = false;
+      if (!hasFocusedInput()) {
+        signalActivity();
+      }
+      return;
+    }
+    
+    // Verificar se relatedTarget ainda está dentro do painel
+    if (panelRef.current) {
+      let isStillInside = false;
+      try {
+        // Tentar verificar se o elemento relacionado ainda está dentro do painel
+        // Usar try-catch porque relatedTarget pode não ser um Node válido
+        if (relatedTarget && typeof (relatedTarget as any).nodeType !== 'undefined') {
+          isStillInside = panelRef.current.contains(relatedTarget as Node);
+        }
+      } catch (error) {
+        // Se houver erro, assumir que saiu
+        isStillInside = false;
+      }
+      
+      if (!isStillInside) {
+        isMouseInsideRef.current = false;
+        // Só finalizar se não houver input focado e após timeout de inatividade
+        if (!hasFocusedInput()) {
+          signalActivity(); // Iniciar timeout para retomar
+        }
+      }
+    }
+  };
+
+  // Handler para qualquer interação dentro do painel
+  const handlePanelInteraction = () => {
+    signalActivity();
+  };
+
   return (
-    <div className="w-80 bg-white border-l border-gray-border flex flex-col h-full">
+    <div 
+      ref={panelRef}
+      className="w-80 bg-white border-l border-gray-border flex flex-col h-full"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onClick={handlePanelInteraction}
+      onTouchStart={handlePanelInteraction}
+      onScroll={handlePanelInteraction}
+    >
       {/* Header */}
       <div className="p-4 border-b border-gray-border">
         <h3 className="text-lg font-semibold text-gray-dark">Comentários</h3>
@@ -86,7 +193,12 @@ export function CommentsPanel({ story, onAddComment, onAddReply }: CommentsPanel
       </div>
 
       {/* Comments List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div 
+        className="flex-1 overflow-y-auto p-4 space-y-4"
+        onScroll={handlePanelInteraction}
+        onMouseDown={handlePanelInteraction}
+        onTouchStart={handlePanelInteraction}
+      >
         {comments.length === 0 ? (
           <div className="text-center py-8">
             <p className="text-gray-text text-sm">Nenhum comentário ainda</p>
@@ -111,8 +223,12 @@ export function CommentsPanel({ story, onAddComment, onAddReply }: CommentsPanel
                     <button
                       onClick={() => {
                         setReplyingTo(comment.id);
-                        inputRef.current?.focus();
+                        setTimeout(() => {
+                          inputRef.current?.focus();
+                          signalActivity();
+                        }, 0);
                       }}
+                      onMouseDown={handlePanelInteraction}
                       className="text-xs text-gray-text hover:text-instagram-primary transition-colors"
                     >
                       Responder
@@ -152,7 +268,16 @@ export function CommentsPanel({ story, onAddComment, onAddReply }: CommentsPanel
                     ref={inputRef}
                     type="text"
                     value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
+                    onChange={(e) => {
+                      setReplyText(e.target.value);
+                      signalActivity();
+                    }}
+                    onFocus={signalActivity}
+                    onBlur={() => {
+                      // Não finalizar imediatamente - deixar o timeout de inatividade gerenciar
+                      signalActivity();
+                    }}
+                    onKeyDown={signalActivity}
                     placeholder="Escreva uma resposta..."
                     className="flex-1 px-3 py-2 text-sm border border-gray-border rounded-full focus:outline-none focus:ring-2 focus:ring-instagram-primary focus:border-transparent"
                     autoFocus
@@ -160,6 +285,7 @@ export function CommentsPanel({ story, onAddComment, onAddReply }: CommentsPanel
                   <button
                     type="submit"
                     disabled={!replyText.trim()}
+                    onMouseDown={handlePanelInteraction}
                     className="px-4 py-2 bg-instagram-primary text-white rounded-full text-sm font-medium hover:bg-opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Enviar
@@ -179,6 +305,7 @@ export function CommentsPanel({ story, onAddComment, onAddReply }: CommentsPanel
             <button
               key={emoji}
               onClick={() => handleEmojiClick(emoji)}
+              onMouseDown={handlePanelInteraction}
               className="text-2xl hover:scale-110 transition-transform flex-shrink-0"
             >
               {emoji}
@@ -191,13 +318,23 @@ export function CommentsPanel({ story, onAddComment, onAddReply }: CommentsPanel
           <input
             type="text"
             value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
+            onChange={(e) => {
+              setNewComment(e.target.value);
+              signalActivity();
+            }}
+            onFocus={signalActivity}
+            onBlur={() => {
+              // Não finalizar imediatamente - deixar o timeout de inatividade gerenciar
+              signalActivity();
+            }}
+            onKeyDown={signalActivity}
             placeholder="Adicione um comentário..."
             className="flex-1 px-4 py-2 text-sm border border-gray-border rounded-full focus:outline-none focus:ring-2 focus:ring-instagram-primary focus:border-transparent"
           />
           <button
             type="submit"
             disabled={!newComment.trim()}
+            onMouseDown={handlePanelInteraction}
             className="px-4 py-2 bg-instagram-primary text-white rounded-full text-sm font-medium hover:bg-opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Enviar
